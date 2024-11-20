@@ -1,0 +1,11 @@
+apiVersion: backstage.io/v1alpha1
+kind: Location
+metadata:
+  schemaVersion: v1.0.0
+  name: terraform-aws-github-runner-location
+  description: Links to additional entities in the terraform-aws-github-runner repository.
+  annotations:
+    github.com/project-slug: Bandwidth/terraform-aws-github-runner
+spec:
+  targets:
+    - ./component.yaml
