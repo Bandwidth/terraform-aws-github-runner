@@ -58,7 +58,7 @@ describe('Dispatcher', () => {
     });
 
     it('should handle workflow_job events without installation id', async () => {
-      config = await createConfig(['philips-labs/terraform-aws-github-runner']);
+      config = await createConfig(['github-aws-runners/terraform-aws-github-runner']);
       const event = { ...workFlowJobEvent, installation: null } as unknown as WorkflowJobEvent;
       const resp = await dispatch(event, 'workflow_job', config);
       expect(resp.statusCode).toBe(201);
@@ -66,7 +66,7 @@ describe('Dispatcher', () => {
     });
 
     it('should handle workflow_job events from allow listed repositories', async () => {
-      config = await createConfig(['philips-labs/terraform-aws-github-runner']);
+      config = await createConfig(['github-aws-runners/terraform-aws-github-runner']);
       const event = workFlowJobEvent as unknown as WorkflowJobEvent;
       const resp = await dispatch(event, 'workflow_job', config);
       expect(resp.statusCode).toBe(201);
@@ -101,7 +101,6 @@ describe('Dispatcher', () => {
         eventType: 'workflow_job',
         installationId: 0,
         queueId: runnerConfig[0].id,
-        queueFifo: false,
         repoOwnerType: 'Organization',
       });
     });
@@ -149,7 +148,6 @@ describe('Dispatcher', () => {
         eventType: 'workflow_job',
         installationId: 0,
         queueId: 'match',
-        queueFifo: false,
         repoOwnerType: 'Organization',
       });
     });

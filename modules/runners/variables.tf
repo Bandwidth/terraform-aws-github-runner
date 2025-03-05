@@ -172,6 +172,18 @@ variable "userdata_post_install" {
   default     = ""
 }
 
+variable "runner_hook_job_started" {
+  description = "Script to be ran in the runner environment at the beginning of every job"
+  type        = string
+  default     = ""
+}
+
+variable "runner_hook_job_completed" {
+  description = "Script to be ran in the runner environment at the end of every job"
+  type        = string
+  default     = ""
+}
+
 variable "sqs_build_queue" {
   description = "SQS queue to consume accepted build events."
   type = object({
@@ -400,7 +412,7 @@ variable "runner_log_files" {
 }
 
 variable "ghes_url" {
-  description = "GitHub Enterprise Server URL. DO NOT SET IF USING PUBLIC GITHUB"
+  description = "GitHub Enterprise Server URL. DO NOT SET IF USING PUBLIC GITHUB..However if you are using Github Enterprise Cloud with data-residency (ghe.com), set the endpoint here. Example - https://companyname.ghe.com|"
   type        = string
   default     = null
 }
@@ -563,7 +575,7 @@ variable "disable_runner_autoupdate" {
 variable "lambda_runtime" {
   description = "AWS Lambda runtime."
   type        = string
-  default     = "nodejs20.x"
+  default     = "nodejs22.x"
 }
 
 variable "lambda_architecture" {
@@ -720,4 +732,10 @@ variable "job_retry" {
     condition     = var.job_retry.enable == false || (var.job_retry.enable == true && var.job_retry.delay_in_seconds <= 900)
     error_message = "The maxium message delay for SWS is 900 seconds."
   }
+}
+
+variable "user_agent" {
+  description = "User agent used for API calls."
+  type        = string
+  default     = null
 }

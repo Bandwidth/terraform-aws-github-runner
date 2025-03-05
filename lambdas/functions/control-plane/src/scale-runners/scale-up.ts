@@ -148,6 +148,7 @@ export async function isJobQueued(githubInstallationClient: Octokit, payload: Ac
     });
     metricGitHubAppRateLimit(jobForWorkflowRun.headers);
     isQueued = jobForWorkflowRun.data.status === 'queued';
+    logger.debug(`The job ${payload.id} is${isQueued ? ' ' : 'not'} queued`);
   } else {
     throw Error(`Event ${payload.eventType} is not supported`);
   }
@@ -354,8 +355,17 @@ export function getGitHubEnterpriseApiUrl() {
   const ghesBaseUrl = process.env.GHES_URL;
   let ghesApiUrl = '';
   if (ghesBaseUrl) {
-    ghesApiUrl = `${ghesBaseUrl}/api/v3`;
+    const url = new URL(ghesBaseUrl);
+    const domain = url.hostname;
+    if (domain.endsWith('.ghe.com')) {
+      // Data residency: Prepend 'api.'
+      ghesApiUrl = `https://api.${domain}`;
+    } else {
+      // GitHub Enterprise Server: Append '/api/v3'
+      ghesApiUrl = `${ghesBaseUrl}/api/v3`;
+    }
   }
+  logger.debug(`Github Enterprise URLs: api_url - ${ghesApiUrl}; base_url - ${ghesBaseUrl}`);
   return { ghesApiUrl, ghesBaseUrl };
 }
 
