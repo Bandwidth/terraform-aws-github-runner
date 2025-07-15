@@ -6,6 +6,9 @@ on:
       - v1
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 jobs:
   release:
     name: Release
@@ -16,7 +19,12 @@ jobs:
       id-token: write
       attestations: write
     steps:
-      - uses: actions/setup-node@1d0ff469b7ec7b3cb9d8673fde0c81c44821de2a # v4.2.0
+      - name: Harden the runner (Audit all outbound calls)
+        uses: step-security/harden-runner@6c439dc8bdf85cadbbce9ed30d1c7b959517bc49 # v2.12.2
+        with:
+          egress-policy: audit
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: 22
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
@@ -26,7 +34,7 @@ jobs:
         working-directory: lambdas
         run: yarn install --frozen-lockfile && yarn run test && yarn dist
       - name: Get installation token
-        uses: actions/create-github-app-token@21cfef2b496dd8ef5b904c159339626a10ad380e # v1.11.6
+        uses: actions/create-github-app-token@df432ceedc7162793a195dd1713ff69aefc7379e # v2.0.6
         id: token
         with:
           app-id: ${{ vars.RELEASER_APP_ID }}
@@ -37,7 +45,7 @@ jobs:
         run: echo "name=${GITHUB_REF#refs/heads/}" >> $GITHUB_OUTPUT
       - name: Release
         id: release
-        uses: googleapis/release-please-action@d1a8f221d7723166f48a584aebba00ef3f6febec # v4.1.4
+        uses: googleapis/release-please-action@a02a34c4d625f9be7cb89156071d8567266a2445 # v4.2.0
         with:
           target-branch: ${{ steps.branch.outputs.name }}
           release-type: terraform-module
@@ -45,7 +53,7 @@ jobs:
       - name: Attest
         if: ${{ steps.release.outputs.releases_created == 'true' }}
         id: attest
-        uses: actions/attest-build-provenance@bd77c077858b8d561b7a36cbe48ef4cc642ca39d # v2.2.2
+        uses: actions/attest-build-provenance@e8998f949152b193b063cb0ec769d69d929409be # v2.4.0
         with:
           subject-path: '${{ github.workspace }}/lambdas/functions/**/*.zip'
       - name: Update release notes with attestation
@@ -62,7 +70,7 @@ jobs:
           gh release view $version --json body -q '.body' > new-release-notes.md
           echo "## Attestation" >> new-release-notes.md
           echo "Attestation url: $attestation_url" >> new-release-notes.md
-          echo "Verify the artifacts by running \`gh attest verify <name_of_artifact> --repo ${{ github.repository }}\`" >> new-release-notes.md
+          echo "Verify the artifacts by running \`gh attestation verify <name_of_artifact> --repo ${{ github.repository }}\`" >> new-release-notes.md
           gh release edit $tag_name -F new-release-notes.md -t $tag_name
       - name: Upload release assets
         if: ${{ steps.release.outputs.releases_created == 'true' }}
@@ -74,3 +82,23 @@ jobs:
           for f in $(find . -name '*.zip'); do
             gh release upload $tag_name $f
           done
+      - name: Attach attestation
+        if: ${{ steps.release.outputs.releases_created == 'true' }}
+        env:
+          ATTESTATION_BUNDLE: ${{ steps.attest.outputs.bundle-path }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG_NAME: ${{ steps.release.outputs.tag_name }}
+          ATTESTATION_ID: ${{ steps.attest.outputs.attestation-id }}
+        run: |
+          # rename attest bundle to github-aws-runners-terraform-aws-github-runner-attestation-$attestation-id.sigstore
+          # OpenSSF expects the attestation bundle to be named in this format (*.sigstore)
+          SIGSTORE_BUNDLE=$RUNNER_TEMP/github-aws-runners-terraform-aws-github-runner-attestation-${ATTESTATION_ID}.sigstore
+          INTOTO_BUNDLE=$RUNNER_TEMP/github-aws-runners-terraform-aws-github-runner-attestation-${ATTESTATION_ID}.intoto.jsonl
+          mv ${ATTESTATION_BUNDLE} $SIGSTORE_BUNDLE
+          if [ -z "$SIGSTORE_BUNDLE" ]; then
+            echo "No attestation bundle found, skipping attachment."
+            exit 0
+          fi
+          gh release upload $TAG_NAME "$SIGSTORE_BUNDLE"
+          cat ${SIGSTORE_BUNDLE} | jq -r '.dsseEnvelope | select(.payloadType == "application/vnd.in-toto+json").payload' | base64 -d | jq .> ${INTOTO_BUNDLE}
+          gh release upload $TAG_NAME "${INTOTO_BUNDLE}"

@@ -19,6 +19,12 @@ To be able to support a number of use-cases, the module has quite a lot of confi
 
 The module uses the AWS System Manager Parameter Store to store configuration for the runners, as well as registration tokens and secrets for the Lambdas. Paths for the parameters can be configured via the variable `ssm_paths`. The location of the configuration parameters is retrieved by the runners via the instance tag `ghr:ssm_config_path`. The following default paths will be used. Tokens or JIT config stored in the token path will be deleted after retrieval by instance, data not deleted after a day will be deleted by a SSM housekeeper lambda.
 
+Furthermore, to accommodate larger JIT configurations or other stored values, the module implements automatic tier selection for SSM parameters:
+
+-   **Parameter Tiering**: If the size of a parameter's value exceeds 4KB (specifically, 4000 bytes), the module will automatically use the 'Advanced' tier for that SSM parameter. Values smaller than this threshold will use the 'Standard' tier.
+-   **Cost Implications**: While the 'Standard' tier is generally free for a certain number of parameters and operations, the 'Advanced' tier incurs costs. These costs are typically pro-rated per hour for each parameter stored using the Advanced tier. For detailed and up-to-date pricing, please refer to the [AWS Systems Manager Pricing page](https://aws.amazon.com/systems-manager/pricing/#Parameter_Store).
+-   **Housekeeping Recommendation**: The last sentence of the "AWS SSM Parameters" section already mentions that "data not deleted after a day will be deleted by a SSM housekeeper lambda." It is crucial to ensure this or a similar housekeeping mechanism is active and correctly configured, especially considering the potential costs associated with 'Advanced' tier parameters. This utility should identify and delete any orphaned parameters to help manage costs and maintain a clean SSM environment.
+
 | Path                                                          | Description                                                                                                                                                                                                                     |
 | ------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `ssm_paths.root/var.prefix?/app/`                             | App secrets used by Lambda's                                                                                                                                                                                                    |
@@ -162,6 +168,42 @@ The option `job_retry.delay_in_seconds` is the delay before the job status is ch
 ## Prebuilt Images
 
 This module also allows you to run agents from a prebuilt AMI to gain faster startup times. The module provides several examples to build your own custom AMI. To remove old images, an [AMI housekeeper module](modules/public/ami-housekeeper.md) can be used. See the [AMI examples](ami-examples/index.md) for more details.
+
+## AMI Configuration
+
+By default, the module will automatically select appropriate AMI images:
+- For Linux x64: Amazon Linux 2023 x86_64
+- For Linux ARM64: Amazon Linux 2023 ARM64
+- For Windows: Windows Server 2022 English Full ECS Optimized
+
+However, you can override these defaults using the `ami` object in two ways:
+
+1. **Using AMI Filters**
+
+You can define filters and owners to look up an AMI. The module will store the AMI ID in an SSM parameter that is managed by the module.
+
+```hcl
+ami = {
+  filter = {
+    name   = ["ubuntu/images/hvm-ssd/ubuntu-jammy-22.04-amd64-*"]
+    state  = ["available"]
+  }
+  owners = ["amazon"]
+}
+```
+
+2. **Using SSM Parameter**
+
+Provide a parameter in SSM that contains the AMI ID. The parameter should be of type `String` and the module will grant the required lambdas access to this parameter.
+
+```hcl
+ami = {
+  id_ssm_parameter_arn = "arn:aws:ssm:region:account:parameter/path/to/ami/parameter"
+}
+```
+
+> **Note:** The old way of configuring AMIs using individual variables (`ami_filter`, `ami_owners`, `ami_kms_key_arn`) is deprecated and will be removed in a future version. It is recommended to migrate to the new consolidated `ami` object.
+
 
 ## Logging
 
