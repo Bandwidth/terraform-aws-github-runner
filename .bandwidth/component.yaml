@@ -6,6 +6,7 @@ metadata:
   description: Forked from https://github.com/philips-labs/terraform-aws-github-runner
   annotations:
     github.com/project-slug: Bandwidth/terraform-aws-github-runner
+    bandwidth.com/environment: production
   organization: BW
   costCenter: Development - Software Infra
   platformType: N/A
@@ -13,8 +14,4 @@ metadata:
 spec:
   type: Utility
   owner: github/band-swi
-  lifecycle: |
-    Prototype
-    dependsOn:
-        - resource:platform/N/A
-        - resource:cost-center/Development - Software Infra
+  lifecycle: Production
