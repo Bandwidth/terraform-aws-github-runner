@@ -6,6 +6,7 @@ metadata:
   description: Forked from https://github.com/philips-labs/terraform-aws-github-runner
   annotations:
     github.com/project-slug: Bandwidth/terraform-aws-github-runner
+    bandwidth.com/languages: Node.js,Terraform
     bandwidth.com/environment: production
   organization: BW
   costCenter: Development - Software Infra
